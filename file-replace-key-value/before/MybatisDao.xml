@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.wonders.ss.global.dao.GlobalAppDao">
+
+    <!-- 采用别名使用类成员变量，可根据需求，确定是否启用 -->
+    <resultMap type="com.wonders.ss.global.entity.GlobalApp" id="globalAppMap">
+        <id property="id" column="APP_ID"/>
+        <result property="ftpId" column="FTP_ID"/>
+        <result property="domainId" column="DOMAIN_ID"/>
+        <result property="organId" column="ORGAN_ID"/>
+        <result property="xzqhId" column="XZQH_ID"/>
+        <result property="sertypeId" column="SERTYPE_ID"/>
+        <result property="name" column="NAME"/>
+        <result property="path" column="PATH"/>
+        <result property="appType" column="APP_TYPE"/>
+        <result property="isSite" column="IS_SITE"/>
+        <result property="isDisabled" column="IS_DISABLED"/>
+        <result property="isMobileApp" column="IS_MOBILE_APP"/>
+        <result property="status" column="STATUS"/>
+        <result property="priority" column="PRIORITY"/>
+        <result property="createTime" column="CREATE_TIME"/>
+        <result property="lastTime" column="LAST_TIME"/>
+        <result property="delFlag" column="DEL_FLAG"/>
+        <result property="deleteTime" column="DELETE_TIME"/>
+        <result property="description" column="DESCRIPTION"/>
+        <result property="spare1" column="SPARE1"/>
+        <result property="spare2" column="SPARE2"/>
+    </resultMap>
+
+    <!-- find by id，通过主键获取对象 -->
+    <select id="findById" resultMap="globalAppMap">
+        SELECT
+            APP_ID, FTP_ID, DOMAIN_ID, ORGAN_ID, XZQH_ID, SERTYPE_ID, NAME, PATH, APP_TYPE, IS_SITE, IS_DISABLED, IS_MOBILE_APP, STATUS, PRIORITY, CREATE_TIME, LAST_TIME, DEL_FLAG, DELETE_TIME, DESCRIPTION, SPARE1, SPARE2
+        FROM GLOBAL_APP
+        WHERE APP_ID = #{value}
+    </select>
+
+    <!-- get list，通过输入的条件，获取返回的list列表对象，采用相应的分页规则进行分页处理 -->
+    <select id="getList" resultMap="globalAppMap">
+        SELECT
+        B.APP_ID, B.FTP_ID, B.DOMAIN_ID, B.ORGAN_ID, B.XZQH_ID, B.SERTYPE_ID, B.NAME, B.PATH, B.APP_TYPE, B.IS_SITE, B.IS_DISABLED, B.IS_MOBILE_APP, B.STATUS, B.PRIORITY, B.CREATE_TIME, B.LAST_TIME, B.DEL_FLAG, B.DELETE_TIME, B.DESCRIPTION, B.SPARE1, B.SPARE2
+        FROM GLOBAL_APP B
+        WHERE 1=1
+        <include refid="commonList"></include>
+        <include refid="getListOrderBy"></include>
+    </select>
+
+
+    <!-- 通用排序SQL，如果传入参数按照参数排序，如果未传入参数，按照主键排序 -->
+    <sql id="getListOrderBy">
+        <choose>
+            <when test='orderBy != null'>
+                ORDER BY APP_ID ASC
+            </when>
+            <otherwise>
+                ORDER BY APP_ID DESC
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!-- sql commonList 通过输入的条件，获取返回的list列表对象
+    -->
+    <sql id="commonList">
+        <!--  只允许默认的本表的字段查询，查询条件可通过Param定义，默认全部字段，后续根据Param内的定义，可删除不需要的查询字段 -->
+        <if test="domainId != null and domainId != ''">
+            and B.DOMAIN_ID = #{domainId}
+        </if>
+        <if test="ftpId != null and ftpId != ''">
+            and B.FTP_ID = #{ftpId}
+        </if>
+        <if test="organId != null and organId != ''">
+            and B.ORGAN_ID = #{organId}
+        </if>
+        <if test="xzqhId != null and xzqhId != ''">
+            and B.XZQH_ID = #{xzqhId}
+        </if>
+        <if test="sertypeId != null and sertypeId != ''">
+            and B.SERTYPE_ID = #{sertypeId}
+        </if>
+        <if test="name != null and name != ''">
+            and B.NAME like concat('%',#{name},'%')
+        </if>
+        <if test="path != null and path != ''">
+            and B.PATH = #{path}
+        </if>
+        <if test="appType != null and appType != ''">
+            and B.APP_TYPE = #{appType}
+        </if>
+        <if test="isSite != null and isSite != ''">
+            and B.IS_SITE = #{isSite}
+        </if>
+        <if test="isDisabled != null and isDisabled != ''">
+            and B.IS_DISABLED = #{isDisabled}
+        </if>
+        <if test="isMobileApp != null and isMobileApp != ''">
+            and B.IS_MOBILE_APP = #{isMobileApp}
+        </if>
+        <if test="status != null and status != ''">
+            and B.STATUS = #{status}
+        </if>
+        <choose>
+            <when test="delFlag != null">
+                AND B.DEL_FLAG = #{delFlag}
+            </when>
+            <otherwise>
+                AND B.DEL_FLAG = 0
+            </otherwise>
+        </choose>
+        <if test="description != null and description != ''">
+            and B.DESCRIPTION = #{description}
+        </if>
+        <if test='existKey != null and existKey !=""'>
+            AND (B.APP_ID = #{existKey}
+            or B.NAME = #{existKey}
+            or B.PATH = #{existKey})
+        </if>
+        <if test='mode != null and mode == 1'>
+            AND B.APP_ID in ('COC-SS', 'COC-SE', 'COC-SM') </if>
+        <if test='mode != null and mode == 2'>
+            AND B.APP_ID in ('COC-SA') </if>
+
+
+        <!-- 各个数据库差异化的查询条件处理，如时间字段 -->
+        <choose>
+            <when test='_databaseId == "mysql"'>
+                <if test='startTime != null and  startTime != "" and endTime != null and  endTime != "" '>
+                    <![CDATA[ and DATE_FORMAT(B.CREATE_TIME,'%Y-%m-%d') >= DATE_FORMAT(#{startTime},'%Y-%m-%d')
+                and DATE_FORMAT(B.CREATE_TIME,'%Y-%m-%d') <= DATE_FORMAT(#{endTime},'%Y-%m-%d') ]]>
+                </if>
+            </when>
+            <when test='_databaseId == "dm8"'>
+                <if test='startTime != null and  startTime != "" and endTime != null and  endTime != "" '>
+                    <![CDATA[ and DATE_FORMAT(B.CREATE_TIME,'%Y-%m-%d') >= DATE_FORMAT(#{startTime},'%Y-%m-%d')
+                and DATE_FORMAT(B.CREATE_TIME,'%Y-%m-%d') <= DATE_FORMAT(#{endTime},'%Y-%m-%d') ]]>
+                </if>
+            </when>
+            <otherwise>
+                <if test='startTime != null and  startTime != "" and endTime != null and  endTime != "" '>
+                    <![CDATA[ and to_date(B.CREATE_TIME,'YYYY-MM-DD') >= to_date(#{startTime},'YYYY-MM-DD')
+                and to_date(B.CREATE_TIME,'YYYY-MM-DD') <= to_date(#{endTime},'YYYY-MM-DD') ]]>
+                </if>
+            </otherwise>
+        </choose>
+    </sql>
+
+    <!-- save object，保存对象信息 -->
+    <insert id="save" parameterType="com.wonders.ss.global.entity.GlobalApp">
+        INSERT INTO GLOBAL_APP
+        (
+            APP_ID, FTP_ID, DOMAIN_ID, ORGAN_ID, XZQH_ID, SERTYPE_ID, NAME, PATH, APP_TYPE, IS_SITE, IS_DISABLED, IS_MOBILE_APP, STATUS, PRIORITY, CREATE_TIME, LAST_TIME, DEL_FLAG, DELETE_TIME, DESCRIPTION, SPARE1, SPARE2
+        )
+        VALUES
+            (
+                #{id}, #{ftpId}, #{domainId}, #{organId}, #{xzqhId}, #{sertypeId}, #{name}, #{path}, #{appType}, #{isSite}, #{isDisabled}, #{isMobileApp}, #{status}, #{priority}, #{createTime}, #{lastTime}, #{delFlag}, #{deleteTime}, #{description}, #{spare1}, #{spare2}
+            )
+    </insert>
+
+    <!-- update object，更新对象信息 -->
+    <update id="update" parameterType="com.wonders.ss.global.entity.GlobalApp">
+        UPDATE GLOBAL_APP
+        <set>
+            <if test="ftpId != null">FTP_ID = #{ftpId}, </if>
+            <if test="domainId != null">DOMAIN_ID = #{domainId}, </if>
+            <if test="organId != null">ORGAN_ID = #{organId}, </if>
+            <if test="xzqhId != null">XZQH_ID = #{xzqhId}, </if>
+            <if test="sertypeId != null">SERTYPE_ID = #{sertypeId}, </if>
+            <if test="name != null">NAME = #{name}, </if>
+            <if test="path != null">PATH = #{path}, </if>
+            <if test="appType != null">APP_TYPE = #{appType}, </if>
+            <if test="isSite != null">IS_SITE = #{isSite}, </if>
+            <if test="isDisabled != null">IS_DISABLED = #{isDisabled}, </if>
+            <if test="isMobileApp != null">IS_MOBILE_APP = #{isMobileApp}, </if>
+            <if test="status != null">STATUS = #{status}, </if>
+            <if test="priority != null">PRIORITY = #{priority}, </if>
+            <if test="createTime != null">CREATE_TIME = #{createTime}, </if>
+            <if test="lastTime != null">LAST_TIME = #{lastTime}, </if>
+            <if test="delFlag != null">DEL_FLAG = #{delFlag}, </if>
+            <if test="deleteTime != null">DELETE_TIME = #{deleteTime}, </if>
+            <if test="description != null">DESCRIPTION = #{description}, </if>
+            <if test="spare1 != null">SPARE1 = #{spare1}, </if>
+            <if test="spare2 != null">SPARE2 = #{spare2}</if>
+        </set>
+        WHERE APP_ID = #{id}
+    </update>
+
+    <!-- delete by id，通过主键删除对象 -->
+    <update id="deleteById">
+        <choose>
+            <when test='_databaseId == "mysql"'>
+                update GLOBAL_APP set del_flag = 1, DELETE_TIME = sysdate(), LAST_TIME = sysdate() WHERE APP_ID = #{value}
+            </when>
+            <when test='_databaseId == "dm8"'>
+                update GLOBAL_APP set del_flag = 1, DELETE_TIME = sysdate(), LAST_TIME = sysdate() WHERE APP_ID = #{value}
+            </when>
+            <otherwise>
+                update GLOBAL_APP set del_flag = 1, DELETE_TIME = sysdate, LAST_TIME = sysdate() WHERE APP_ID = #{value}
+            </otherwise>
+        </choose>
+
+    </update>
+
+    <!-- delete by ids，通过主键数组批量删除对象 -->
+    <update id="deleteByIds">
+        <choose>
+            <when test='_databaseId == "mysql"'>
+                update GLOBAL_APP set del_flag = 1, DELETE_TIME = sysdate(),LAST_TIME = sysdate()
+                WHERE APP_ID IN
+                <foreach item="id" collection="array" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </when>
+            <otherwise>
+                update GLOBAL_APP set del_flag = 1, DELETE_TIME = sysdate,LAST_TIME = sysdate
+                WHERE APP_ID IN
+                <foreach item="id" collection="array" open="(" separator="," close=")">
+                    #{id}
+                </foreach>
+            </otherwise>
+        </choose>
+    </update>
+
+    <!-- query total，通过输入的条件，查询返回结果的数量，返回值为int -->
+    <select id="queryTotal" resultType="int">
+        SELECT COUNT(1)
+        FROM GLOBAL_APP B
+        WHERE 1 = 1
+        <include refid="commonList"></include>
+    </select>
+
+    <!-- 以下为新增特定的操作 -->
+    <!-- get list with dto result，通过输入的条件，返回查询结果信息，返回值为dto对象 -->
+    <resultMap type="com.wonders.ss.global.dto.GlobalAppDto" extends="globalAppMap" id="globalAppDtoMap">
+        <result property="xzqhName" column="xzqhName"/>
+    </resultMap>
+
+    <!-- get page with param input dto result，通过输入的条件，返回查询结果信息，返回值为dto对象 -->
+    <select id="getPageDto" resultMap="globalAppDtoMap">
+        SELECT
+        B.APP_ID, B.FTP_ID, B.DOMAIN_ID, B.ORGAN_ID, B.XZQH_ID, B.SERTYPE_ID, B.NAME, B.PATH, B.APP_TYPE, B.IS_SITE, B.IS_DISABLED, B.IS_MOBILE_APP, B.STATUS, B.PRIORITY, B.CREATE_TIME, B.LAST_TIME, B.DEL_FLAG, B.DELETE_TIME, B.DESCRIPTION, B.SPARE1, B.SPARE2
+        , GX.NAME as xzqhName
+        FROM GLOBAL_APP B
+        LEFT JOIN GLOBAL_XZQH GX on B.XZQH_ID = GX.XZQH_ID
+        WHERE B.DEL_FLAG = 0
+        <include refid="commonList"></include>
+        ORDER BY B.PRIORITY ASC
+
+    </select>
+
+    <!-- get dto with input id，通过ID，查询dto对象 -->
+    <select id="getDtoById" resultMap="globalAppDtoMap">
+        SELECT
+            B.APP_ID, B.FTP_ID, B.DOMAIN_ID, B.ORGAN_ID, B.XZQH_ID, B.SERTYPE_ID, B.NAME, B.PATH, B.APP_TYPE, B.IS_SITE, B.IS_DISABLED, B.IS_MOBILE_APP, B.STATUS, B.PRIORITY, B.CREATE_TIME, B.LAST_TIME, B.DEL_FLAG, B.DELETE_TIME, B.DESCRIPTION, B.SPARE1, B.SPARE2
+             , GX.NAME as xzqhName
+        FROM GLOBAL_APP B
+                 LEFT JOIN GLOBAL_XZQH GX on B.XZQH_ID = GX.XZQH_ID
+        WHERE APP_ID = #{value}
+    </select>
+
+    <!-- 获取行政区划code -->
+    <select id="getAreaCodeByParams" parameterType="map" resultType="String">
+        <if test="appId != null">
+            SELECT t2.code
+            FROM GLOBAL_APP t, GLOBAL_XZQH t2
+            WHERE t.xzqh_id = t2.xzqh_id
+            and t.del_flag = 0
+            AND t.app_id = #{appId}
+        </if>
+    </select>
+
+    <!-- 获取包含外键名称的Dto对象 -->
+    <resultMap id="globalAppInfoDtoMap" extends="globalAppDtoMap" type="com.wonders.ss.global.dto.GlobalAppInfoDto">
+        <result property="ftpName" column="ftpName"/>
+        <result property="sertypeName" column="sertypeName"/>
+        <result property="domainName" column="domainName"/>
+        <result property="organName" column="organName"/>
+    </resultMap>
+
+    <select id="getGlobalAppInfoDto" resultMap="globalAppInfoDtoMap">
+        SELECT B.APP_ID,B. FTP_ID,B. DOMAIN_ID,B. ORGAN_ID,B. XZQH_ID,B. SERTYPE_ID,B. NAME,B. PATH,B. APP_TYPE,B. IS_SITE,B. IS_DISABLED,B. IS_MOBILE_APP,B. STATUS,B. PRIORITY,B. DESCRIPTION
+             , GF.NAME as ftpName , GS.NAME as sertypeName , GX.NAME as xzqhName, GD.NAME as domainName , GO.NAME as organName
+        FROM GLOBAL_APP B
+                 left join GLOBAL_FTP GF on B.FTP_ID = GF.FTP_ID
+                 left join GLOBAL_SERTYPE GS on B.SERTYPE_ID = GS.SERTYPE_ID
+                 left join GLOBAL_XZQH GX  on B.XZQH_ID = GX.XZQH_ID
+                 left join GLOBAL_DOMAIN GD  on B.DOMAIN_ID = GD.DOMAIN_ID
+                 left join GLOBAL_ORGAN GO  on B.ORGAN_ID = GO.ORGAN_ID
+        WHERE B.APP_ID = #{id}
+    </select>
+
+    <resultMap type="com.wonders.ss.global.dto.BaseDictionary" id="baseDictionaryGaMap">
+        <result property="id" column="CDD_ID"/>
+        <result property="name" column="NAME"/>
+        <result property="cddValue" column="CDD_VALUE"/>
+        <result property="searchCode" column="SEARCH_CODE"/>
+    </resultMap>
+
+    <select id="getForSelect" resultMap="baseDictionaryGaMap">
+        SELECT NAME, APP_ID as CDD_VALUE
+        FROM GLOBAL_APP B
+        where B.DEL_FLAG = 0
+        ORDER BY PRIORITY ASC
+    </select>
+
+</mapper>
