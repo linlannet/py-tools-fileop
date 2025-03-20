@@ -10,7 +10,7 @@ python open_excel_table.py
 python open_excel_column.py 
 
 # DIR REPLACE
-python files_replace.py 
+python ocr-rapidocr-output.py 
 # DIR REPLACE ONLY DO TABLENAME
 python files_replace_table.py 
 ```

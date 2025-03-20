@@ -1,0 +1,5 @@
+rapidocr
+paddlepaddle
+
+pytesseract
+opencv-python
