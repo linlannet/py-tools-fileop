@@ -1,0 +1,242 @@
+-- 上线前的数据工作和功能验证
+-- -- 机构信息处理
+-- 用模板《重点扶持企业分类认定名单-导入》导入289条新企业
+-- 1、先检查IOC_SYSTEM_1_4_1内UNION_CODE的去重数量；
+select count(distinct (UNION_CODE)) from IOC_SYSTEM_1_4_1;
+select count(UNION_CODE) from IOC_SYSTEM_1_4_1;
+select count(distinct(NAME)) from IOC_SYSTEM_1_4_1;
+select count(NAME) from IOC_SYSTEM_1_4_1;
+
+-- 2、机构信息289条导入到IOC_SYSTEM_1_4_1体系；
+-- 执行20250517不在3030内企业-处理.sql
+-- update IOC_SYSTEM_1_4_1 set del_flag=0, CREATE_TYPE=0, create_time = now(), LAST_TIME=now() where SPARE1 = '不在3030内的企业，新增的289企业';
+-- update IOC_SYSTEM_1_4_1 set create_time = now() where create_time is null;
+-- insert into IOC_SYSTEM_1_4_2 (ORGAN_ID)
+-- select ORGAN_ID from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select ORGAN_ID from IOC_SYSTEM_1_4_2);
+-- insert into IOC_SYSTEM_2_2_1 (SYSORGAN_ID, DEL_FLAG, CREATE_TIME, LAST_TIME)
+-- select ORGAN_ID, 0, now(), now() from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select SYSORGAN_ID from IOC_SYSTEM_2_2_1);
+-- insert into IOC_SYSTEM_2_2_3 (SYSORGAN_ID)
+-- select ORGAN_ID from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select SYSORGAN_ID from IOC_SYSTEM_2_2_3);
+select * from IOC_FRAME_2_1_1 where REGISTER_ORGAN_NATURE not in (select UNION_CODE from IOC_SYSTEM_1_4_1) AND PEOPLE_TYPE='PEOPLE_INFO';
+
+-- 3、检查社保接口执行后，IOC_FRAME_2_1_1内ORGAN_NAME和REGISTER_ORGAN_NAME不一致的数据，分析后确定是否有新增的企业，是否将REGISTER_NATURE（统一信用代码）更新ORGAN_ID和ORGAN_NAME；
+select * from IOC_FRAME_2_1_1 where ORGAN_NAME <> REGISTER_ORGAN_NAME AND PEOPLE_TYPE='PEOPLE_INFO';
+select distinct (REGISTER_ORGAN_NAME) from IOC_FRAME_2_1_1 where ORGAN_NAME <> REGISTER_ORGAN_NAME;
+select REGISTER_ORGAN_NAME, REGISTER_ORGAN_NATURE, '0518社保接口内增加的企业' from IOC_FRAME_2_1_1
+where REGISTER_ORGAN_NATURE not in (select UNION_CODE from IOC_SYSTEM_1_4_1) AND PEOPLE_TYPE='PEOPLE_INFO';
+
+-- 4、将新增的企业加入IOC_SYSTEM_1_4_1体系；用模板《重点扶持企业分类认定名单-导入》导入社保接口后新增的X条新企业
+-- insert into IOC_SYSTEM_1_4_1 (ORGAN_ID, NAME, UNION_CODE, SPARE1, DEL_FLGA, CREATE_TYPE, CREATE_TIME, LAST_TIME)
+-- select guid(), REGISTER_ORGAN_NAME, REGISTER_ORGAN_NATURE, '0518社保接口内增加的企业', 0, 0, now(), now() from IOC_FRAME_2_1_1
+-- where REGISTER_ORGAN_NATURE not in (select UNION_CODE from IOC_SYSTEM_1_4_1) AND PEOPLE_TYPE='PEOPLE_INFO';
+-- insert into IOC_SYSTEM_1_4_2 (ORGAN_ID)
+-- select ORGAN_ID from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select ORGAN_ID from IOC_SYSTEM_1_4_2);
+-- insert into IOC_SYSTEM_2_2_1 (SYSORGAN_ID, DEL_FLAG, CREATE_TIME, LAST_TIME)
+-- select ORGAN_ID, 0, now(), now() from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select SYSORGAN_ID from IOC_SYSTEM_2_2_1);
+-- insert into IOC_SYSTEM_2_2_3 (SYSORGAN_ID)
+-- select ORGAN_ID from IOC_SYSTEM_1_4_1 where ORGAN_ID not in (select SYSORGAN_ID from IOC_SYSTEM_2_2_3);
+
+-- 5、更新IOC_FRAME_2_6_1基于社保变化的企业；
+select * from IOC_SYSTEM_1_4_1 GLO where ORGAN_ID not in (select ORGAN_ID from IOC_FRAME_2_6_1 ) and LENGTH(UNION_CODE)>16;
+INSERT INTO IOC_FRAME_2_6_1 (ORGAN_ID, ORGAN_NAME, UNION_CODE, ORGAN_LEVEL, CREATE_TIME, CONN_GORGAN_ID, DEL_FLAG, SPARE1)
+select GLO.ORGAN_ID, GLO.NAME, GLO.UNION_CODE, 'GRC', GLO.CREATE_TIME, GLO.ORGAN_ID, 0, SPARE1 from IOC_SYSTEM_1_4_1 GLO where ORGAN_ID not in (select ORGAN_ID from IOC_FRAME_2_6_1 ) and LENGTH(UNION_CODE)>16;
+update IOC_FRAME_2_6_1 set DEL_FLAG = 0 where DEL_FLAG IS NULL;
+-- 6、将新增的企业插入到GRC_ORGAN_RENCAI中；
+-- select * from IOC_SYSTEM_1_4_1 GLO where ORGAN_ID not in (select ORGAN_ID from GRC_ORGAN_RENCAI ) and LENGTH(UNION_CODE)>16;
+-- INSERT INTO GRC_ORGAN_RENCAI (ORGAN_ID, ORGAN_NAME, STATUS, CREATOR_ID, CREATE_TIME, SPARE1)
+-- select GLO.ORGAN_ID, GLO.NAME, 'WAIT_RECEIVE', '0518COMPARE', GLO.CREATE_TIME, SPARE1 from IOC_SYSTEM_1_4_1 GLO where ORGAN_ID not in (select ORGAN_ID from IOC_FRAME_2_6_1 ) and LENGTH(UNION_CODE)>16;
+
+-- 7、检查已有企业ORGAN_ID是否保持一致，并更新IOC_FRAME_2_6_1内ORGAN_ID和CONN_GORGAN_ID一致；
+select * from IOC_FRAME_2_6_1 where CONN_GORGAN_ID <> ORGAN_ID;
+update IOC_FRAME_2_6_1 set CONN_GORGAN_ID = ORGAN_ID ;
+--
+-- -- 人员信息处理
+-- 1、导入白名单数据和灰名单数据，分析白名单内PEOPLE_ID为空的数据，是否需要增加人员到IOC_FRAME_2_1_1和IOC_SYSTEM_1_4_3体系；
+select * from GRC_ORGAN_USER_FMLIST where SPARE1 not in (select UNION_CODE from IOC_SYSTEM_1_4_1);
+select * from GRC_ORGAN_USER_FMLIST where SERVER_ORGAN_ID IS NULL;
+-- 考虑机构是否要新增，通常不用新增
+select * from GRC_ORGAN_USER_FMLIST where PEOPLE_USER_ID IS NULL;
+update GRC_ORGAN_USER_FMLIST set SPARE2=guid();
+
+-- 2、将新增的用户添加到IOC_SYSTEM_1_4_3体系中；
+-- 没有手机号，不添加账户
+-- 3、将新增的用户添加到IOC_FRAME_2_1_1中；
+select SPARE2, B.NAME, B.ID_NUM, B.TELEPHONE, FOREIGN_ID, SERVER_ORGAN_ID, SERVER_ORGAN_NAME, SPARE1 from GRC_ORGAN_USER_FMLIST B where PEOPLE_USER_ID IS NULL;
+INSERT INTO SAS_PEOPLE_USER (PEOPLE_ID, ID_NAME, ID_NUM, MOBILE, SPARE1, ORGAN_ID, ORGAN_NAME, REGISTER_ORGAN_NATURE, PEOPLE_TYPE)
+select SPARE2, B.NAME, B.ID_NUM, B.TELEPHONE, FOREIGN_ID, SERVER_ORGAN_ID, SERVER_ORGAN_NAME, SPARE1, 'PEOPLE_INFO' from GRC_ORGAN_USER_FMLIST B where PEOPLE_USER_ID IS NULL and ID_NUM NOT IN (select ID_NUM from IOC_FRAME_2_1_1);
+-- 4、将新增的人员添加到GRC_PEOPLE_RENCAI中；
+
+-- 5、将新增的人员添加到GRC_ORGAN_USER_LIST中，类型为EMPLOYEE；
+
+-- -- 已有人员和机构关联信息机构为空处理
+-- 1、更新当前IOC_FRAME_2_1_1表中ORGAN_ID为空的数据，更新ORGAN_NAME；
+select * from IOC_FRAME_2_1_1 where ORGAN_ID IS NULL;
+select * from IOC_FRAME_2_1_1 SPB, IOC_SYSTEM_1_4_1 GLO
+where SPB.REGISTER_ORGAN_NATURE = GLO.UNION_CODE AND SPB.ORGAN_ID IS NULL and REGISTER_ORGAN_NATURE IS NOT NULL;
+UPDATE IOC_FRAME_2_1_1 SPB
+set SPB.ORGAN_ID= GLO.ORGAN_ID, SPB.ORGAN_NAME=GLO.NAME
+    FROM IOC_FRAME_2_1_1 SPB, IOC_SYSTEM_1_4_1 GLO
+where SPB.REGISTER_ORGAN_NATURE = GLO.UNION_CODE AND SPB.ORGAN_ID IS NULL and REGISTER_ORGAN_NATURE IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+-- 2、更新当前IOC_PUBLIC_3_1_5表中ORGAN_ID为空的数据；
+select SURO.ORGAN_ID, SPB.ORGAN_ID, SPB.ID_NAME from IOC_PUBLIC_3_1_5 SURO, IOC_FRAME_2_1_1 SPB
+WHERE SURO.USER_ID = SPB.PEOPLE_ID AND PEOPLE_TYPE='PEOPLE_INFO';
+update IOC_PUBLIC_3_1_5 SURO
+set SURO.ORGAN_ID = SPB.ORGAN_ID
+    from IOC_PUBLIC_3_1_5 SURO, IOC_FRAME_2_1_1 SPB
+where SURO.USER_ID = SPB.PEOPLE_ID and SURO.ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+-- 3、更新当前GRC_PEOPLE_RENCAI内CURR_ORGAN_ID为空的CURR_ORGAN_ID，更新全部的CURR_ORGAN_NAME；
+SELECT * from GRC_PEOPLE_RENCAI GPR, IOC_FRAME_2_1_1 SPB
+where GPR.PEOPLE_ID = SPB.PEOPLE_ID and GPR.CURR_ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+update GRC_PEOPLE_RENCAI GPR
+set GPR.CURR_ORGAN_ID = SPB.ORGAN_ID, GPR.CURR_ORGAN_NAME=SPB.ORGAN_NAME
+    from GRC_PEOPLE_RENCAI GPR, IOC_FRAME_2_1_1 SPB
+where GPR.PEOPLE_ID = SPB.PEOPLE_ID and GPR.CURR_ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+-- 4、更新当前GRC_ORGAN_USER_LIST表中ORGAN_ID为空的数据；
+SELECT * from GRC_ORGAN_USER_LIST GOUL , IOC_FRAME_2_1_1 SPB
+where GOUL.PEOPLE_USER_ID = SPB.PEOPLE_ID and GOUL.SERVER_ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND SPB.PEOPLE_TYPE='PEOPLE_INFO';
+update GRC_ORGAN_USER_LIST GOUL
+set GOUL.SERVER_ORGAN_ID = SPB.ORGAN_ID, GOUL.SERVER_ORGAN_NAME=SPB.ORGAN_NAME
+    from GRC_ORGAN_USER_LIST GOUL, IOC_FRAME_2_1_1 SPB
+where GOUL.PEOPLE_USER_ID = SPB.PEOPLE_ID and GOUL.SERVER_ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND SPB.PEOPLE_TYPE='PEOPLE_INFO';
+-- 5、更新GRC_PEOPLE_POST内ORGAN_ID、ORGAN_NAME、UNION_CODE；
+SELECT * from GRC_PEOPLE_POST GPP , IOC_FRAME_2_1_1 SPB
+where GPP.PEOPLE_ID = SPB.PEOPLE_ID and GPP.ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+update GRC_PEOPLE_POST GPP
+set GPP.ORGAN_ID = SPB.ORGAN_ID, GPP.ORGAN_NAME=SPB.ORGAN_NAME, GPP.UNION_CODE=SPB.REGISTER_ORGAN_NATURE
+    from GRC_PEOPLE_POST GPP, IOC_FRAME_2_1_1 SPB
+where GPP.PEOPLE_ID = SPB.PEOPLE_ID and GPP.ORGAN_ID IS NULL and SPB.ORGAN_ID IS NOT NULL AND PEOPLE_TYPE='PEOPLE_INFO';
+-- 6、查看当前IOC_PUBLIC_1_3_3表中ORGAN_ID为空的数据；
+select * from IOC_PUBLIC_1_3_3 where ORGAN_ID IS NULL;
+
+-- -- 处理本次上线的业务数据
+-- 1、删除导入的白名单和灰名单数据，重新导入白名单和灰名单，已满足PEOPLE_ID的全部赋值；如有未赋值的继续排查；
+TRUNCATE TABLE GRC_ORGAN_USER_FMLIST;
+TRUNCATE TABLE GRC_COMM_PREBIZ_INFO;
+
+-- 2、重新导入白名单和灰名单，查看名单数据是否正常；
+select * from GRC_ORGAN_USER_FMLIST where PEOPLE_USER_ID IS NULL OR SERVER_ORGAN_ID IS NULL;
+-- 3、导入前置审批数据，查看前置审批数据是否正常；
+select * from GRC_COMM_PREBIZ_INFO where PEOPLE_ID IS NULL OR ORGAN_ID IS NULL;
+-- 4、导入灰名单12个月多个补贴标准的数据；
+select * from GRC_JIANGBU_IMP_PEOPLE_STD where PEOPLE_ID IS NULL;
+-- 5、检查发放历史数据是否正常；
+select * from GRC_JIANGBU_SERVER_HANDOUT_HIS where PEOPLE_ID IS NULL;
+
+-- 6、检查家庭成员数据是否正常；
+select * from GRC_PEOPLE_FAMILY_MEMBER where PEOPLE_ID IS NULL;
+-- 7、检查银行卡信息是否正常；
+select * from GRC_PEOPLE_BANKINFO GPB, IOC_FRAME_2_1_1 SPB
+where GPB.PEOPLE_ID IS NULL and SPB.ID_NUM = ( SELECT HEX(AES_ENCRYPT(CARD_OWNER, 'BmSHFCFwF0No5z91YwCL653QqEGrwiCd4s8Pnp5v4pzfgZO/ST6F0IucsT+MO4iOGHI9PMhhazeGHhrYD65QXHdxd8/jVlq3I9GauHKzWyKvL3rY3/c/T/2D2fmgAmieudSZuwKtgxb1O+9ypC9+iUH2uzl0s60qFaSNYMZLxmPfr3OPeQZpmSZmimq/QDBZryQ02E1vKkY=')) )
+
+update GRC_PEOPLE_BANKINFO GPB
+set GPB.PEOPLE_ID = SPB.PEOPLE_ID
+    from GRC_PEOPLE_BANKINFO GPB, IOC_FRAME_2_1_1 SPB
+where GPB.PEOPLE_ID IS NULL and SPB.ID_NUM = ( SELECT HEX(AES_ENCRYPT(CARD_OWNER, 'BmSHFCFwF0No5z91YwCL653QqEGrwiCd4s8Pnp5v4pzfgZO/ST6F0IucsT+MO4iOGHI9PMhhazeGHhrYD65QXHdxd8/jVlq3I9GauHKzWyKvL3rY3/c/T/2D2fmgAmieudSZuwKtgxb1O+9ypC9+iUH2uzl0s60qFaSNYMZLxmPfr3OPeQZpmSZmimq/QDBZryQ02E1vKkY=')) )
+-- 8、检查各类字典是否正常，重点是前置审批的字典；
+--
+-- -- 验证用户登录后状态是否正常
+-- 1、测试配置了IOC_SYSTEM_1_4_3用户体系的用户是否能够正常登录，登录后，IOC_PUBLIC_1_3_3表中ORGAN_ID为空的数据是否更新了ORGAN_ID，以及再次登录是否正常；
+-- 2、测试22000-18000=4000的用户是否能够正常注册和登录（代码要实现及测试）；4000人只能看到信息修改的菜单；
+-- 3、测试前置审批功能；
+-- 4、测试租房补贴功能；
+-- 5、测试灰名单12个月多个补贴标准的功能。
+
+-- 用白名单的姓名更新VIEW_NAME
+-- 是否需要？
+-- 删除导入数据中的明文身份证号码和姓名
+-- 暂时不做，等后续再做，文档运行一个月之后
+
+
+-- 登录功能调整，增加接口
+-- 登录页面的邮箱换成在线登记入口
+-- 登录默认为个人用户优先
+-- BUG修改
+--
+
+
+
+
+
+
+
+-- 以下是测试库数据清理过程
+    defined ALLOW_USER_LIST = ('','','')
+
+-- HX部分
+-- 删除system层账户
+delete from IOC_SYSTEM_1_4_3 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_1_4_4 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_2_2_4 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_2_2_7 where USER_ID not in ALLOW_USER_LIST;
+
+-- 删除manage层账户
+delete from IOC_MANAGE_2_1_5 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_MANAGE_2_1_2 where MEMBMER_ID not in (select MEMBER_ID From IOC_MANAGE_2_1_5);
+delete from IOC_MANAGE_2_2_1 where USER_ID not in (select MEMBER_ID From IOC_MANAGE_2_1_5);
+-- 删除support层账户
+delete from IOC_PUBLIC_1_3_3 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_PUBLIC_3_1_5 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_PUBLIC_2_3_1 where USER_ID not in ALLOW_USER_LIST;
+
+--      测试库删除多余添加的用户
+-- 删除system层账户
+delete from IOC_SYSTEM_1_4_3 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_1_4_4 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_1_4_3_PROPERTY where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_2_2_4 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_SYSTEM_2_2_7 where USER_ID not in ALLOW_USER_LIST;
+
+-- 删除manage层账户
+delete from IOC_MANAGE_2_1_5 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_MANAGE_2_1_2 where MEMBMER_ID not in (select MEMBER_ID From IOC_MANAGE_2_1_5);
+delete from IOC_MANAGE_2_2_1 where USER_ID not in (select MEMBER_ID From IOC_MANAGE_2_1_5);
+-- 删除support层账户
+delete from IOC_PUBLIC_1_3_3 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_PUBLIC_3_1_5 where USER_ID not in ALLOW_USER_LIST;
+delete from IOC_PUBLIC_2_3_1 where USER_ID not in ALLOW_USER_LIST;
+
+
+--
+select PEOPLE_ID from GRC_ORGAN_USER_LIST where TYPE='HR_WORKER'
+
+
+-- 基础库
+delete from IOC_FRAME_2_1_1 where PEOPLE_ID not in ALLOW_USER_LIST;
+
+-- 删除人才业务层用户信息
+delete from GRC_PEOPLE_RENCAI where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_COMM_PREBIZ_INFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_COMM_PREBIZ_INFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+-- 删除人才业务层企业认定人才积分用户信息
+delete from GRC_ORGAN_USER_LIST where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_ORGAN_USER_FMLIST where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_EDU where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_INCOME where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_INVEST where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_LABEL where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_POST where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SCORE_EXPLAIN where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SCORE_STAT where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SERVER_INFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SERVER_LAYOUT where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SERVEVA where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_TECHEVA where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+-- 删除人才业务层公共附件信息
+delete from GRC_COMM_ATTACH where OBJECT_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_COMM_EXT_RECORD where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_COMM_MODIFY_RECORD where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_COMM_OP_RECORD where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+-- 删除人才业务层奖补信息
+delete from GRC_PEOPLE_FAMILY_MEMBER where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_SALARY where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_HOUSE_INFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_BANKINFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_RENT_RECORD where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_PEOPLE_RENT_RECORD where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_JIANGBU_SERVER_INFO where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_JIANGBU_SERVER_LAYOUT where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_JIANGBU_SERVER_DETAIL where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_JIANGBU_SERVER_HANDOUT where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+delete from GRC_JIANGBU_HANDOUT_REFUND where PEOPLE_ID not in (select PEOPLE_ID from GRC_PEOPLE_RENCAI);
+
+

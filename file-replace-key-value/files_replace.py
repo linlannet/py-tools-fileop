@@ -35,12 +35,12 @@ def open_and_save(dir_path, key_value):
 print("loading key value")
 # 配置 key/value 键值对
 table_key_value = oet.key_value_pairs
-column_key_value = oec.key_value_pairs
+# column_key_value = oec.key_value_pairs
 
 for key, value in table_key_value.items():
     print(key, value)
-for key, value in column_key_value.items():
-    print(key, value)
+# for key, value in column_key_value.items():
+#     print(key, value)
 
 # 指定目录路径 path/to/directory
 dir = "./workdir"
@@ -48,5 +48,5 @@ dir = "./workdir"
 table_count = open_and_save(dir, table_key_value)
 print("Replace table", table_count)
 
-column_count = open_and_save(dir, column_key_value)
-print("Replace column", column_count)
+# column_count = open_and_save(dir, column_key_value)
+# print("Replace column", column_count)
